@@ -1,15 +1,16 @@
 ﻿import {
-    BrokerAdapter,
-    OrderStatus,
-    OrderType,
-    TimeInForce,
-    OrderSide,
-    CashMarginType,
-    QuoteSide,
-    Order,
-    Execution,
-    Quote,
-    BrokerConfigType, BoardState
+  BrokerAdapter,
+  OrderStatus,
+  OrderType,
+  TimeInForce,
+  OrderSide,
+  CashMarginType,
+  QuoteSide,
+  Order,
+  Execution,
+  Quote,
+  BrokerConfigType,
+  BoardState
 } from './types';
 import { getLogger } from './logger';
 import * as _ from 'lodash';
@@ -23,8 +24,11 @@ export default class BrokerAdapterImpl implements BrokerAdapter {
   private readonly productCode = 'FX_BTC_JPY';
   readonly broker = 'BitflyerFX';
 
+  private boardState: BoardState;
+
   constructor(private readonly config: BrokerConfigType) {
     this.brokerApi = new BrokerApi(this.config.key, this.config.secret);
+    this.boardState = BoardState.STOP;
   }
 
   async send(order: Order): Promise<void> {
@@ -88,7 +92,16 @@ export default class BrokerAdapterImpl implements BrokerAdapter {
 
   async fetchQuotes(): Promise<Quote[]> {
     const response = await this.brokerApi.getBoard();
-    return this.mapToQuote(response);
+    this.boardState = await this.getBoardState();
+    this.log.info("bitFlyerFX Health: " + this.boardState['health']);
+    switch (this.boardState['health']) {
+      case 'NORMAL' :
+        return this.mapToQuote(response);
+      case 'BUSY' :
+        return this.mapToQuote(response);
+      default :
+        return this.mapToQuoteVolZero(response);
+    }
   }
 
   private mapOrderToSendChildOrderRequest(order: Order): SendChildOrderRequest {
@@ -175,7 +188,23 @@ export default class BrokerAdapterImpl implements BrokerAdapter {
     return _.concat(asks, bids);
   }
 
-    async getBoardState(): Promise<BoardState> {
-        return await this.brokerApi.getBoardState();
-    }
+  private mapToQuoteVolZero(boardResponse: BoardResponse): Quote[] {
+    const asks = _(boardResponse.asks)
+      .take(100)
+      .map(q => {
+        return { broker: this.broker, side: QuoteSide.Ask, price: Number(q.price), volume: Number(0.001) };
+      })
+      .value();
+    const bids = _(boardResponse.bids)
+      .take(100)
+      .map(q => {
+        return { broker: this.broker, side: QuoteSide.Bid, price: Number(q.price), volume: Number(0.001) };
+      })
+      .value();
+    return _.concat(asks, bids);
+  }
+
+  async getBoardState(): Promise<BoardState> {
+      return await this.brokerApi.getBoardState();
+  }
 } /* istanbul ignore next */

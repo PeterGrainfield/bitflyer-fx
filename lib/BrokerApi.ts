@@ -57,7 +57,7 @@ export default class BrokerApi {
   }
 
   async getBoardState(): Promise<BoardState> {
-    const path = '/v1/getboardstate';
+    const path = '/v1/getboardstate?product_code=FX_BTC_JPY';
     return await this.get<BoardState>(path);
   }
 
