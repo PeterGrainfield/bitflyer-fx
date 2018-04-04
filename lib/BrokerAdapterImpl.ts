@@ -93,7 +93,7 @@ export default class BrokerAdapterImpl implements BrokerAdapter {
   async fetchQuotes(): Promise<Quote[]> {
     const response = await this.brokerApi.getBoard();
     this.boardState = await this.getBoardState();
-    this.log.info("bitFlyerFX Health: " + this.boardState['health']);
+    this.log.debug("bitFlyerFX Health: " + this.boardState['health']);
     switch (this.boardState['health']) {
       case 'NORMAL' :
         return this.mapToQuote(response);
